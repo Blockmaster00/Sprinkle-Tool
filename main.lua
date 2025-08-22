@@ -1,7 +1,10 @@
-local SPAWNS_PER_UPDATE = 1500
+local SPAWNS_PER_UPDATE = 100
 
 
 local spawnedObjects = {}
+
+local customTextures = {}
+local customMeshes = {}
 
 local success, objectGroups = pcall(function() return json.parse(tm.os.ReadAllText_Dynamic("objectGroups.json")) end)
 if not success then
@@ -47,26 +50,85 @@ local colors = {
 
 --#region Functions
 ---------------------------------------------------- Functions ---------------------------------------------------
+
+local function prepareObject(object) --returns scale and rotation
+    local scale
+    if object.scaleSeperate then
+        scale = tm.vector3.Create(
+            math.random(object.minScale.x * 100, object.maxScale.x * 100) / 100,
+            math.random(object.minScale.y * 100, object.maxScale.y * 100) / 100,
+            math.random(object.minScale.z * 100, object.maxScale.z * 100) / 100
+        )
+    else
+        local scaleMultiplyier = math.random(object.minScale * 100, object.maxScale * 100) / 100
+        --multiply object scale by scale value to get a uniform scale
+        scale = tm.vector3.Create(
+            object.scale.x * scaleMultiplyier,
+            object.scale.y * scaleMultiplyier,
+            object.scale.z * scaleMultiplyier
+        )
+    end
+
+    local rotation = tm.vector3.Create(0, math.random(0, 360), 0)
+
+    if not object.prefab then
+        if not Table_contains(customTextures, object.texture) then
+            tm.physics.AddTexture(object.texture, object.texture)
+            table.insert(customTextures, object.texture)
+        end
+        if not Table_contains(customMeshes, object.name) then
+            tm.physics.AddMesh(object.name, object.name)
+            table.insert(customMeshes, object.name)
+        end
+    end
+
+    return scale, rotation
+end
+
+local function spawnObject(object, position)
+    local scale, rotation = prepareObject(object)
+    local objectReference
+
+    if object.prefab then
+        objectReference = tm.physics.SpawnObject(position, object.name)
+    else
+        objectReference = tm.physics.SpawnCustomObjectConcave(position, object.name, object.texture)
+    end
+
+    local objectTransform = objectReference.GetTransform()
+    objectTransform.SetRotation(rotation)
+    objectTransform.SetScale(scale)
+    tm.os.Log("Spawned Object: "..object.name)
+    return objectReference
+end
+
 local function spawnGroup(group, amount)
+    tm.os.Log("amount to spawn: ".. amount)
     local objects = group.objects
     for i = 1, amount do
-        tm.os.Log("Spawning object: " .. objects[math.random(1, #objects)].name .. ", number: " .. i)
+
+        table.insert(spawnedObjects, spawnObject(objects[math.random(1, #objects)], tm.vector3.Create(math.random(-1000, 1000), 300, math.random(-1000, 1000))))
         if i % SPAWNS_PER_UPDATE == 0 then
             tm.os.Log("yielding")
             coroutine.yield(i)
         end
     end
-    return amount
+end
+
+function Table_contains(tbl, x)
+    for key, value in pairs(tbl) do
+        if value == x then
+            return true
+        end
+    end
+    return false
 end
 
 --#endregion Functions
 
 --#region UI
 ------------------------------------------------------- UI -------------------------------------------------------
----
---- Callback functions for UI elements
-local function EditValue(CallbackData)
-end
+
 local function drawUI_StartMenu(playerId)
     tm.playerUI.AddUIButton(playerId, "btnGroupList", "Group List", function() UpdateUI(playerId, "groupList") end)
     tm.playerUI.AddUILabel(playerId, "lblCredit", "<color=#BEAED5>by Blockhampter</color>")
@@ -352,8 +414,9 @@ local function drawUI_SpawnGroup(playerId, data)
     end)
     tm.playerUI.AddUIButton(playerId, "btnSpawnObjects", "Spawn Objects", function()
         -- create coroutine and save at data.sprinkleGen
-        data.spawnMessageId = tm.playerUI.AddSubtleMessageForPlayer(playerId, "Spawning: "..group.name, "0% of objects spawned", 1000000000)
-        data.sprinkleGen = coroutine.create(function ()
+        data.spawnMessageId = tm.playerUI.AddSubtleMessageForPlayer(playerId, "Spawning: " .. group.name,
+            "0% of objects spawned", 1000000000)
+        data.sprinkleGen = coroutine.create(function()
             spawnGroup(group, data.amountToSpawn)
         end)
     end)
@@ -405,17 +468,19 @@ function update()
             local sprinkleGen = playerData.sprinkleGen
             if coroutine.status(sprinkleGen) ~= "dead" then
                 local ok, index = coroutine.resume(sprinkleGen)
-                if ok and index ~= nil then
-                    tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId, math.ceil((index / playerData.amountToSpawn) * 100) .. "%")
+                if ok then
+                    tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
+                        math.ceil((index / playerData.amountToSpawn) * 100) .. "%")
                 else
-                    tm.os.Log("reached end")
+                    tm.os.Log("reached end or fatal Flaw")
+                    tm.os.Log("Error: ".. index)
                 end
             else
                 tm.playerUI.RemoveSubtleMessageForPlayer(playerId, playerData.spawnMessageId)
-                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Spawning "..objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
+                tm.playerUI.AddSubtleMessageForPlayer(playerId,
+                    "Spawning " .. objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
                 playerData.sprinkleGen = nil
                 playerData.spawnMessageId = nil
-
             end
         end
     end
