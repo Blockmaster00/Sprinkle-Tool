@@ -1,6 +1,15 @@
 [
 {
-    "name":"Forest",
+    "name":"New Group 1",
+    "position":{
+        "x":-3.6588921546936035,
+        "y":300.14715576171875,
+        "z":1.5993139743804932
+    },
+    "size":{
+        "x":100,
+        "z":200
+    },
     "objects":[
 {
         "name":"PFB_PalmFern_Medium",
@@ -10,24 +19,17 @@
             "y":0,
             "z":0
         },
-        "scaleSeperate":false,
-        "minScale":1,
-        "maxScale":1,
-        "scale":{
+        "scaleSeperate":true,
+        "minScale":{
             "x":1,
-            "y":5,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
             "z":1
         }
     }]
 
-},
-{
-    "name":"New Group 2",
-    "objects":{
-    }
-},
-{
-    "name":"New Group 3",
-    "objects":{
-    }
 }]

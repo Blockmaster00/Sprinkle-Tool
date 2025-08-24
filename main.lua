@@ -105,9 +105,15 @@ end
 local function spawnGroup(group, amount)
     tm.os.Log("amount to spawn: ".. amount)
     local objects = group.objects
+    local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
+    local groupSize = group.size
+
+    local maxSpawnPosX, minSpawnPosX = groupPos.x + (groupSize.x / 2), groupPos.x - (groupSize.x / 2)
+    local maxSpawnPosZ, minSpawnPosZ = groupPos.z + (groupSize.z / 2), groupPos.z - (groupSize.z / 2)
+
     for i = 1, amount do
 
-        table.insert(spawnedObjects, spawnObject(objects[math.random(1, #objects)], tm.vector3.Create(math.random(-1000, 1000), 300, math.random(-1000, 1000))))
+        table.insert(spawnedObjects, spawnObject(objects[math.random(1, #objects)], tm.vector3.Create(math.random(minSpawnPosX, maxSpawnPosX), 300, math.random(minSpawnPosZ, maxSpawnPosZ))))
         if i % SPAWNS_PER_UPDATE == 0 then
             tm.os.Log("yielding")
             coroutine.yield(i)
@@ -168,7 +174,20 @@ local function drawUI_GroupList(playerId, data)
 
     tm.playerUI.AddUIButton(playerId, "btnAddGroup", "Add Group", function()
         local newGroupName = "New Group" .. " " .. (#objectGroups + 1)
-        table.insert(objectGroups, { name = newGroupName, objects = {} })
+        local playerPos = tm.players.GetPlayerTransform(playerId).GetPosition()
+        table.insert(objectGroups, {
+            name = newGroupName,
+            position = {
+                x = playerPos.x,
+                y = playerPos.y,
+                z = playerPos.z
+            },
+            size = {
+                x = 100,
+                z = 100
+            },
+            objects = {}
+        })
         UpdateUI(playerId, "groupList")
     end)
 end
@@ -177,18 +196,53 @@ local function drawUI_EditGroup(playerId, data)
     local focusedGroupElement = data.focusedGroupElement or nil
     local group = objectGroups[focusedGroupElement]
 
-    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "groupList") end)
+    if focusedGroupElement == nil then
+        UpdateUI(playerId, "groupList")
+        return
+    end
 
-    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function(CallbackData)
+    --spawn TriggerBox to visualize Group Area
+    local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
+    local groupScale = tm.vector3.Create(group.size.x, 5, group.size.z)
+    data.groupVisualization = tm.physics.SpawnBoxTrigger(groupPos, groupScale)
+    data.groupVisualization.SetIsVisible(true)
+
+
+    tm.playerUI.AddUIButton(playerId, "btnReturn", "Save", function()
+        UpdateUI(playerId, "groupList")
+        tm.os.Log("Saving groups")
+        tm.os.WriteAllText_Dynamic("objectGroups.json", json.serialize(objectGroups))
+    end)
+
+    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function (CallbackData)
         group.name = CallbackData.value
         UpdateUI(playerId, "editGroup")
     end)
 
-    tm.playerUI.AddUIButton(playerId, "btnEnableDisabletHeatMap",
-        (group.heatmapActive == true and "Disable" or "Enable") .. " Heatmap", function()
-            group.heatmapActive = not group.heatmapActive
-            UpdateUI(playerId, "editGroup")
-        end)
+    tm.playerUI.AddUILabel(playerId, "lblPosition", "Position (x, y, z)")
+    tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function (CallbackData)
+        group.position.x = tonumber(CallbackData.value)
+        UpdateUI(playerId, "editGroup")
+    end)
+    tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function (CallbackData)
+        group.position.y = tonumber(CallbackData.value)
+        UpdateUI(playerId, "editGroup")
+    end)
+    tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function (CallbackData)
+        group.position.z = tonumber(CallbackData.value)
+        UpdateUI(playerId, "editGroup")
+    end)
+
+    tm.playerUI.AddUILabel(playerId, "lblSize", "Size (x, z)")
+    tm.playerUI.AddUIText(playerId, "txtSizeX", group.size.x or 1, function (CallbackData)
+        group.size.x = tonumber(CallbackData.value)
+        UpdateUI(playerId, "editGroup")
+    end)
+    tm.playerUI.AddUIText(playerId, "txtSizeZ", group.size.z or 1, function (CallbackData)
+        group.size.z = tonumber(CallbackData.value)
+        UpdateUI(playerId, "editGroup")
+    end)
+
     -- Btn Object List
     tm.playerUI.AddUIButton(playerId, "btnObjectList", "Objects", function()
         UpdateUI(playerId, "objectList")
@@ -309,7 +363,7 @@ local function drawUI_EditObject(playerId, data)
         end)
 
 
-    tm.playerUI.AddUILabel(playerId, "lblOffset", "Offset (x, y, z) :")
+    tm.playerUI.AddUILabel(playerId, "lblOffset", "Offset (x, y, z):")
     tm.playerUI.AddUIText(playerId, "txtOffsetX", object.offset.x, function(UICallbackData)
         object.offset.x = tonumber(UICallbackData.value) or 0
         UpdateUI(playerId, "editObject")
@@ -338,7 +392,7 @@ local function drawUI_EditObject(playerId, data)
         end)
 
     if object.scaleSeperate then
-        tm.playerUI.AddUILabel(playerId, "lblMinScale", "Min Scale (x, y, z) :")
+        tm.playerUI.AddUILabel(playerId, "lblMinScale", "Min Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMinScaleX", object.minScale.x, function(UICallbackData)
             object.minScale.x = tonumber(UICallbackData.value) or 0
             UpdateUI(playerId, "editObject")
@@ -352,7 +406,7 @@ local function drawUI_EditObject(playerId, data)
             UpdateUI(playerId, "editObject")
         end)
 
-        tm.playerUI.AddUILabel(playerId, "lblMaxScale", "Max Scale (x, y, z) :")
+        tm.playerUI.AddUILabel(playerId, "lblMaxScale", "Max Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMaxScaleX", object.maxScale.x, function(UICallbackData)
             object.maxScale.x = tonumber(UICallbackData.value) or 0
             UpdateUI(playerId, "editObject")
@@ -366,7 +420,7 @@ local function drawUI_EditObject(playerId, data)
             UpdateUI(playerId, "editObject")
         end)
     else
-        tm.playerUI.AddUILabel(playerId, "lblScale", "Scale multiplier (min, max) :")
+        tm.playerUI.AddUILabel(playerId, "lblScale", "Scale multiplier (min, max):")
         tm.playerUI.AddUIText(playerId, "txtMinScale", object.minScale, function(UICallbackData)
             object.minScale = tonumber(UICallbackData.value) or 0
             UpdateUI(playerId, "editObject")
@@ -376,7 +430,7 @@ local function drawUI_EditObject(playerId, data)
             UpdateUI(playerId, "editObject")
         end)
 
-        tm.playerUI.AddUILabel(playerId, "lblScale", "Scale (x, y, z) :")
+        tm.playerUI.AddUILabel(playerId, "lblScale", "Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtScaleX", object.scale.x, function(UICallbackData)
             object.scale.x = tonumber(UICallbackData.value) or 0
             UpdateUI(playerId, "editObject")
@@ -408,7 +462,7 @@ local function drawUI_SpawnGroup(playerId, data)
     tm.playerUI.AddUILabel(playerId, "lblSpawnGroup", "Spawn Group: " .. group.name)
 
     tm.playerUI.AddUILabel(playerId, "lblObjectsToSpawn", "Objects to spawn:")
-    tm.playerUI.AddUIText(playerId, "txtObjectsToSpawn", data.amountToSpawn or 100, function(CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtObjectsToSpawn", data.amountToSpawn, function(CallbackData)
         data.amountToSpawn = tonumber(CallbackData.value) or 100
         UpdateUI(playerId, "spawnGroup")
     end)
@@ -445,6 +499,10 @@ function UpdateUI(playerId, modeName)
         end
     }
     local uiData = playerUIData[playerId]
+
+    if uiData.groupVisualization ~= nil then
+        tm.physics.DespawnObject(uiData.groupVisualization)
+    end
 
     if mode[modeName] then
         playerUIData[playerId].uiMenu = modeName
@@ -488,6 +546,7 @@ end
 
 local function main()
     playerUIData[0] = {
+        amountToSpawn = 100,
         uiMenu = "startMenu"
     }
     UpdateUI(0, "startMenu")
