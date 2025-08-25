@@ -32,4 +32,238 @@
         }
     }]
 
+},
+{
+    "name":"New Group 2",
+    "position":{
+        "x":730.4124755859375,
+        "y":827.47979736328125,
+        "z":794.846923828125
+    },
+    "size":{
+        "x":100,
+        "z":500
+    },
+    "objects":[
+{
+        "name":"PFB_PalmFern_Medium",
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    }]
+
+},
+{
+    "name":"New Group 3",
+    "position":{
+        "x":321.13803100585938,
+        "y":903.42974853515625,
+        "z":593.64971923828125
+    },
+    "size":{
+        "x":1000,
+        "z":100
+    },
+    "objects":[
+{
+        "name":"PFB_PalmFern_Medium",
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":5,
+            "z":1
+        }
+    }]
+,
+    "visible":false
+},
+{
+    "name":"DesertMap",
+    "position":{
+        "x":0,
+        "y":1500,
+        "z":0
+    },
+    "size":{
+        "x":15000,
+        "z":15000
+    },
+    "objects":[
+{
+        "name":"PFB_Cactus_Bush",
+        "likeliness":10,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":false,
+        "minScale":1,
+        "maxScale":2,
+        "scale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    },
+{
+        "name":"PFB_Cactus_Mini",
+        "likeliness":50,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    },
+{
+        "name":"PFB_INS_Savannah_Bush_Small",
+        "likeliness":1,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    }]
+
+},
+{
+    "name":"MountainMap",
+    "position":{
+        "x":0,
+        "y":1200,
+        "z":0
+    },
+    "size":{
+        "x":15000,
+        "z":15000
+    },
+    "objects":[
+{
+        "name":"PFB_Tall_SlenderPine_1",
+        "likeliness":1,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":2,
+            "z":1
+        }
+    }]
+
+},
+{
+    "name":"New Group 6",
+    "position":{
+        "x":-3900,
+        "y":1400,
+        "z":5850
+    },
+    "size":{
+        "x":50,
+        "z":50
+    },
+    "objects":[
+{
+        "name":"PFB_PalmFern_Medium",
+        "likeliness":10,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    },
+{
+        "name":"PFB_CharredTree2",
+        "likeliness":90,
+        "prefab":true,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        }
+    }]
+
 }]

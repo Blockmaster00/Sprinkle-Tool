@@ -18,6 +18,7 @@ end
 local newObjectTemplate = {
     name = "PFB_PalmFern_Medium",
     prefab = true, -- true = prefab, false = custom object
+    likeliness = 1,
     offset = {
         x = 0,
         y = 0,
@@ -50,6 +51,37 @@ local colors = {
 
 --#region Functions
 ---------------------------------------------------- Functions ---------------------------------------------------
+
+local function prepareWeightedTable(objects)
+    local cumulative = {}
+    local total = 0
+    for i, obj in ipairs(objects) do
+        total = total + obj.likeliness
+        cumulative[i] = total
+    end
+    return cumulative, total
+end
+
+-- Binary search to find index
+local function binarySearch(cumulative, value)
+    local low, high = 1, #cumulative
+    while low < high do
+        local mid = math.floor((low + high) / 2)
+        if value <= cumulative[mid] then
+            high = mid
+        else
+            low = mid + 1
+        end
+    end
+    return low
+end
+
+local function weightedRandom(objects, cumulative, total)
+    local r = math.random() * total
+    local index = binarySearch(cumulative, r)
+    return objects[index]
+end
+
 
 local function prepareObject(object) --returns scale and rotation
     local scale
@@ -98,27 +130,42 @@ local function spawnObject(object, position)
     local objectTransform = objectReference.GetTransform()
     objectTransform.SetRotation(rotation)
     objectTransform.SetScale(scale)
-    tm.os.Log("Spawned Object: "..object.name)
+    tm.os.Log("Spawned Object: " .. object.name)
     return objectReference
 end
 
 local function spawnGroup(group, amount)
-    tm.os.Log("amount to spawn: ".. amount)
+    tm.os.Log("amount to spawn: " .. amount)
     local objects = group.objects
-    local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
+    local groupPos = group.position
     local groupSize = group.size
 
     local maxSpawnPosX, minSpawnPosX = groupPos.x + (groupSize.x / 2), groupPos.x - (groupSize.x / 2)
     local maxSpawnPosZ, minSpawnPosZ = groupPos.z + (groupSize.z / 2), groupPos.z - (groupSize.z / 2)
 
-    for i = 1, amount do
+    local cumulative, total = prepareWeightedTable(objects)
 
-        table.insert(spawnedObjects, spawnObject(objects[math.random(1, #objects)], tm.vector3.Create(math.random(minSpawnPosX, maxSpawnPosX), 300, math.random(minSpawnPosZ, maxSpawnPosZ))))
-        if i % SPAWNS_PER_UPDATE == 0 then
-            tm.os.Log("yielding")
-            coroutine.yield(i)
+    local i = 0
+    while i < amount do
+        local raycastPos = tm.vector3.Create(math.random(minSpawnPosX, maxSpawnPosX), groupPos.y,
+            math.random(minSpawnPosZ, maxSpawnPosZ))
+
+        local raycast = tm.physics.RaycastData(raycastPos, tm.vector3.Down(), 1000, true)
+
+        if raycast.DidHit() then
+            local randomObj = weightedRandom(objects, cumulative, total)
+            table.insert(spawnedObjects, spawnObject(randomObj, raycast.GetHitPosition()))
+            i = i + 1
+            if i % SPAWNS_PER_UPDATE == 0 then
+                tm.os.Log("yielding")
+                coroutine.yield(i)
+            end
         end
     end
+end
+
+local function despawnGroup(group)
+
 end
 
 function Table_contains(tbl, x)
@@ -214,31 +261,31 @@ local function drawUI_EditGroup(playerId, data)
         tm.os.WriteAllText_Dynamic("objectGroups.json", json.serialize(objectGroups))
     end)
 
-    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function(CallbackData)
         group.name = CallbackData.value
         UpdateUI(playerId, "editGroup")
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblPosition", "Position (x, y, z)")
-    tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function(CallbackData)
         group.position.x = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
-    tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function(CallbackData)
         group.position.y = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
-    tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function(CallbackData)
         group.position.z = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblSize", "Size (x, z)")
-    tm.playerUI.AddUIText(playerId, "txtSizeX", group.size.x or 1, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtSizeX", group.size.x or 1, function(CallbackData)
         group.size.x = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
-    tm.playerUI.AddUIText(playerId, "txtSizeZ", group.size.z or 1, function (CallbackData)
+    tm.playerUI.AddUIText(playerId, "txtSizeZ", group.size.z or 1, function(CallbackData)
         group.size.z = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
@@ -296,6 +343,7 @@ local function drawUI_ObjectList(playerId, data)
     tm.playerUI.AddUIButton(playerId, "btnAddObject", "Add Object", function()
         local newObject = {
             name = newObjectTemplate.name,
+            likeliness = newObjectTemplate.likeliness,
             prefab = newObjectTemplate.prefab,
             offset = {
                 x = newObjectTemplate.offset.x,
@@ -362,6 +410,12 @@ local function drawUI_EditObject(playerId, data)
             UpdateUI(playerId, "editObject")
         end)
 
+    tm.playerUI.AddUILabel(playerId, "lblLikeliness", "Likeliness")
+    tm.playerUI.AddUILabel(playerId, "lblLikeliness2", "<size=10>how likely the object is to be spawned</size>")
+    tm.playerUI.AddUIText(playerId, "txtLikeliness", object.likeliness, function(UICallbackData)
+        object.likeliness = tonumber(UICallbackData.value) or 1
+        UpdateUI(playerId, "editObject")
+    end)
 
     tm.playerUI.AddUILabel(playerId, "lblOffset", "Offset (x, y, z):")
     tm.playerUI.AddUIText(playerId, "txtOffsetX", object.offset.x, function(UICallbackData)
@@ -531,7 +585,7 @@ function update()
                         math.ceil((index / playerData.amountToSpawn) * 100) .. "%")
                 else
                     tm.os.Log("reached end or fatal Flaw")
-                    tm.os.Log("Error: ".. index)
+                    tm.os.Log("Error: " .. index)
                 end
             else
                 tm.playerUI.RemoveSubtleMessageForPlayer(playerId, playerData.spawnMessageId)
