@@ -1,7 +1,9 @@
 local SPAWNS_PER_UPDATE = 100
 
 
-local spawnedObjects = {}
+local spawnedObjects = {
+    --"groupId" = {obj1, obj2, obj3...}
+}
 
 local customTextures = {}
 local customMeshes = {}
@@ -82,6 +84,20 @@ local function weightedRandom(objects, cumulative, total)
     return objects[index]
 end
 
+local function loadHeatmap(path)
+    if path == nil or path == "" then
+        tm.os.Log("No heatmap path provided")
+        return nil
+    end
+
+    local success, parsedData = pcall(function() return json.parse(tm.os.ReadAllText_Static(path)) end)
+    if not success then
+        tm.os.Log("Failed to read heatmap file: " .. path)
+        return nil
+    end
+    tm.os.Log("Heatmap file read successfully: " .. path)
+    return parsedData
+end
 
 local function prepareObject(object) --returns scale and rotation
     local scale
@@ -145,28 +161,77 @@ local function spawnGroup(group, amount)
 
     local cumulative, total = prepareWeightedTable(objects)
 
+    local heatmap = loadHeatmap(group.heatmapPath)
+    tm.os.Log("using heatmap: " .. tostring(heatmap ~= nil))
+
+
     local i = 0
+    local spawnedObjectsInGroup = {}
     while i < amount do
-        local raycastPos = tm.vector3.Create(math.random(minSpawnPosX, maxSpawnPosX), groupPos.y,
-            math.random(minSpawnPosZ, maxSpawnPosZ))
+        local raycastPos = tm.vector3.Create(
+            math.random(minSpawnPosX, maxSpawnPosX),
+            groupPos.y,
+            math.random(minSpawnPosZ, maxSpawnPosZ)
+        )
 
         local raycast = tm.physics.RaycastData(raycastPos, tm.vector3.Down(), 1000, true)
 
         if raycast.DidHit() then
-            local randomObj = weightedRandom(objects, cumulative, total)
-            table.insert(spawnedObjects, spawnObject(randomObj, raycast.GetHitPosition()))
+            local hitPos = raycast.GetHitPosition()
+            if heatmap ~= nil then
+                local hitIndex_X = math.max(1, math.min(heatmap.width, math.floor(((hitPos.x - minSpawnPosX) / groupSize.x) * heatmap.width)))
+                local hitIndex_Y = math.max(1, math.min(heatmap.height, math.floor(((hitPos.z - minSpawnPosZ) / groupSize.z) * heatmap.height)))
+                tm.os.Log("hitIndex_X: " .. hitIndex_X .. ", hitIndex_Y: " .. hitIndex_Y)
+
+                local randomValue = math.random()
+                tm.os.Log("heatmap value: " .. tostring(heatmap.data[hitIndex_X] and heatmap.data[hitIndex_X][hitIndex_Y]))
+                tm.os.Log("random value: " .. tostring(randomValue))
+
+                if heatmap.data[hitIndex_X][hitIndex_Y] < randomValue then
+                    tm.os.Log("hitpos rejected by heatmap")
+                    goto continue
+                end
+                tm.os.Log("hitpos accepted by heatmap")
+            end
+
             i = i + 1
+            local randomObj = weightedRandom(objects, cumulative, total)
+            table.insert(spawnedObjectsInGroup, spawnObject(randomObj, hitPos))
+            tm.os.Log(i)
             if i % SPAWNS_PER_UPDATE == 0 then
-                tm.os.Log("yielding")
+                tm.os.Log("yielding spawning")
                 coroutine.yield(i)
             end
+        end
+        ::continue::
+    end
+    spawnedObjects[group.groupId] = spawnedObjectsInGroup
+end
+
+local function despawnGroup(groupId)
+    local spawnedObjectsGroup = spawnedObjects[groupId] or {}
+    for i, obj in ipairs(spawnedObjectsGroup) do
+        obj.Despawn()
+        if i % SPAWNS_PER_UPDATE == 0 then
+            tm.os.Log("yielding despawn")
+            coroutine.yield(i)
         end
     end
 end
 
-local function despawnGroup(group)
+local function showGroupPreview(playerId, group)
+    local data = playerUIData[playerId]
 
+    if data.groupVisualization ~= nil then
+        data.groupVisualization.Despawn()
+    end
+    --spawn TriggerBox to visualize Group Area
+    local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
+    local groupScale = tm.vector3.Create(group.size.x, 5, group.size.z)
+    data.groupVisualization = tm.physics.SpawnBoxTrigger(groupPos, groupScale)
+    data.groupVisualization.SetIsVisible(true)
 end
+
 
 function Table_contains(tbl, x)
     for key, value in pairs(tbl) do
@@ -190,7 +255,11 @@ end
 local function drawUI_GroupList(playerId, data)
     local focusedGroupElement = data.focusedGroupElement or nil
 
-    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "startMenu") end)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function()
+        data.focusedGroupElement = nil
+        data.focusedObjectElement = nil
+        UpdateUI(playerId, "startMenu")
+    end)
 
     tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- Groups -~")
 
@@ -202,6 +271,10 @@ local function drawUI_GroupList(playerId, data)
                 UpdateUI(playerId, "groupList")
             end)
         if i == focusedGroupElement then
+            -- Btn Object List
+            tm.playerUI.AddUIButton(playerId, "btnObjectList", "Object List", function()
+                UpdateUI(playerId, "objectList")
+            end)
             --Btn Spawn Group
             tm.playerUI.AddUIButton(playerId, "btnSpawnGroup_" .. i, "Spawn", function()
                 UpdateUI(playerId, "spawnGroup")
@@ -221,9 +294,11 @@ local function drawUI_GroupList(playerId, data)
 
     tm.playerUI.AddUIButton(playerId, "btnAddGroup", "Add Group", function()
         local newGroupName = "New Group" .. " " .. (#objectGroups + 1)
+        local groupId = tostring(tm.os.GetRealtimeSinceStartup()) .. "_" .. tostring(math.random(1000, 9999))
         local playerPos = tm.players.GetPlayerTransform(playerId).GetPosition()
         table.insert(objectGroups, {
             name = newGroupName,
+            groupId = groupId,
             position = {
                 x = playerPos.x,
                 y = playerPos.y,
@@ -248,12 +323,6 @@ local function drawUI_EditGroup(playerId, data)
         return
     end
 
-    --spawn TriggerBox to visualize Group Area
-    local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
-    local groupScale = tm.vector3.Create(group.size.x, 5, group.size.z)
-    data.groupVisualization = tm.physics.SpawnBoxTrigger(groupPos, groupScale)
-    data.groupVisualization.SetIsVisible(true)
-
 
     tm.playerUI.AddUIButton(playerId, "btnReturn", "Save", function()
         UpdateUI(playerId, "groupList")
@@ -266,17 +335,23 @@ local function drawUI_EditGroup(playerId, data)
         UpdateUI(playerId, "editGroup")
     end)
 
+    tm.playerUI.AddUILabel(playerId, "lblHeatmap", "Heatmap Path (optional)")
+    tm.playerUI.AddUIText(playerId, "txtHeatmapPath", group.heatmapPath or "", function(CallbackData)
+        group.heatmapPath = CallbackData.value
+        UpdateUI(playerId, "editGroup")
+    end)
+
     tm.playerUI.AddUILabel(playerId, "lblPosition", "Position (x, y, z)")
     tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function(CallbackData)
-        group.position.x = tonumber(CallbackData.value)
+        group.position.x = tonumber(CallbackData.value) or group.position.x
         UpdateUI(playerId, "editGroup")
     end)
     tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function(CallbackData)
-        group.position.y = tonumber(CallbackData.value)
+        group.position.y = tonumber(CallbackData.value) or group.position.y
         UpdateUI(playerId, "editGroup")
     end)
     tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function(CallbackData)
-        group.position.z = tonumber(CallbackData.value)
+        group.position.z = tonumber(CallbackData.value) or group.position.z
         UpdateUI(playerId, "editGroup")
     end)
 
@@ -289,16 +364,11 @@ local function drawUI_EditGroup(playerId, data)
         group.size.z = tonumber(CallbackData.value)
         UpdateUI(playerId, "editGroup")
     end)
-
-    -- Btn Object List
-    tm.playerUI.AddUIButton(playerId, "btnObjectList", "Objects", function()
-        UpdateUI(playerId, "objectList")
-    end)
 end
 
 
 local function drawUI_ObjectList(playerId, data)
-    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "editGroup") end)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "groupList") end)
 
     local focusedGroupElement = data.focusedGroupElement or nil
     local focusedObjectElement = data.focusedObjectElement or nil
@@ -448,53 +518,53 @@ local function drawUI_EditObject(playerId, data)
     if object.scaleSeperate then
         tm.playerUI.AddUILabel(playerId, "lblMinScale", "Min Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMinScaleX", object.minScale.x, function(UICallbackData)
-            object.minScale.x = tonumber(UICallbackData.value) or 0
+            object.minScale.x = tonumber(UICallbackData.value) or object.minScale.x
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtMinScaleY", object.minScale.y, function(UICallbackData)
-            object.minScale.y = tonumber(UICallbackData.value) or 0
+            object.minScale.y = tonumber(UICallbackData.value) or object.minScale.y
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtMinScaleZ", object.minScale.z, function(UICallbackData)
-            object.minScale.z = tonumber(UICallbackData.value) or 0
+            object.minScale.z = tonumber(UICallbackData.value) or object.minScale.z
             UpdateUI(playerId, "editObject")
         end)
 
         tm.playerUI.AddUILabel(playerId, "lblMaxScale", "Max Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMaxScaleX", object.maxScale.x, function(UICallbackData)
-            object.maxScale.x = tonumber(UICallbackData.value) or 0
+            object.maxScale.x = tonumber(UICallbackData.value) or object.maxScale.x
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScaleY", object.maxScale.y, function(UICallbackData)
-            object.maxScale.y = tonumber(UICallbackData.value) or 0
+            object.maxScale.y = tonumber(UICallbackData.value) or object.maxScale.y
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScaleZ", object.maxScale.z, function(UICallbackData)
-            object.maxScale.z = tonumber(UICallbackData.value) or 0
+            object.maxScale.z = tonumber(UICallbackData.value) or object.maxScale.z
             UpdateUI(playerId, "editObject")
         end)
     else
         tm.playerUI.AddUILabel(playerId, "lblScale", "Scale multiplier (min, max):")
         tm.playerUI.AddUIText(playerId, "txtMinScale", object.minScale, function(UICallbackData)
-            object.minScale = tonumber(UICallbackData.value) or 0
+            object.minScale = tonumber(UICallbackData.value) or object.minScale
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScale", object.maxScale, function(UICallbackData)
-            object.maxScale = tonumber(UICallbackData.value) or 0
+            object.maxScale = tonumber(UICallbackData.value) or object.maxScale
             UpdateUI(playerId, "editObject")
         end)
 
         tm.playerUI.AddUILabel(playerId, "lblScale", "Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtScaleX", object.scale.x, function(UICallbackData)
-            object.scale.x = tonumber(UICallbackData.value) or 0
+            object.scale.x = tonumber(UICallbackData.value) or object.scale.x
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtScaleY", object.scale.y, function(UICallbackData)
-            object.scale.y = tonumber(UICallbackData.value) or 0
+            object.scale.y = tonumber(UICallbackData.value) or object.scale.y
             UpdateUI(playerId, "editObject")
         end)
         tm.playerUI.AddUIText(playerId, "txtScaleZ", object.scale.z, function(UICallbackData)
-            object.scale.z = tonumber(UICallbackData.value) or 0
+            object.scale.z = tonumber(UICallbackData.value) or object.scale.z
             UpdateUI(playerId, "editObject")
         end)
     end
@@ -521,12 +591,29 @@ local function drawUI_SpawnGroup(playerId, data)
         UpdateUI(playerId, "spawnGroup")
     end)
     tm.playerUI.AddUIButton(playerId, "btnSpawnObjects", "Spawn Objects", function()
-        -- create coroutine and save at data.sprinkleGen
+        local sprinkleGen = {
+            action = "Spawning",
+            amount = data.amountToSpawn,
+            coroutine = coroutine.create(function()
+                spawnGroup(group, data.amountToSpawn)
+            end)
+        }
+
         data.spawnMessageId = tm.playerUI.AddSubtleMessageForPlayer(playerId, "Spawning: " .. group.name,
             "0% of objects spawned", 1000000000)
-        data.sprinkleGen = coroutine.create(function()
-            spawnGroup(group, data.amountToSpawn)
-        end)
+        data.sprinkleGen = sprinkleGen
+    end)
+    tm.playerUI.AddUIButton(playerId, "btnDespawnObjects", "Despawn Objects", function()
+        local sprinkleGen = {
+            action = "Despawning",
+            amount = #spawnedObjects[group.groupId],
+            coroutine = coroutine.create(function()
+                despawnGroup(group.groupId)
+            end)
+        }
+        data.spawnMessageId = tm.playerUI.AddSubtleMessageForPlayer(playerId, "Despawning: " .. group.name,
+            "0% of objects despawned", 1000000000)
+        data.sprinkleGen = sprinkleGen
     end)
 end
 
@@ -554,8 +641,13 @@ function UpdateUI(playerId, modeName)
     }
     local uiData = playerUIData[playerId]
 
-    if uiData.groupVisualization ~= nil then
-        tm.physics.DespawnObject(uiData.groupVisualization)
+    if uiData.focusedGroupElement ~= nil then
+        showGroupPreview(playerId, objectGroups[uiData.focusedGroupElement])
+    else
+        if uiData.groupVisualization ~= nil then
+            uiData.groupVisualization.Despawn()
+            uiData.groupVisualization = nil
+        end
     end
 
     if mode[modeName] then
@@ -576,11 +668,19 @@ function update()
     for i, player in ipairs(tm.players.CurrentPlayers()) do
         local playerId = player.playerId
         local playerData = playerUIData[playerId]
+
         if playerData.sprinkleGen then
+            --player is either spawning or despawning something
             local sprinkleGen = playerData.sprinkleGen
-            if coroutine.status(sprinkleGen) ~= "dead" then
-                local ok, index = coroutine.resume(sprinkleGen)
+
+            local action = sprinkleGen.action -- "Spawning" or "Despawning"
+
+            if coroutine.status(sprinkleGen.coroutine) ~= "dead" then
+                local ok, index = coroutine.resume(sprinkleGen.coroutine)
                 if ok then
+                    if index == nil then
+                        break
+                    end
                     tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
                         math.ceil((index / playerData.amountToSpawn) * 100) .. "%")
                 else
@@ -590,7 +690,7 @@ function update()
             else
                 tm.playerUI.RemoveSubtleMessageForPlayer(playerId, playerData.spawnMessageId)
                 tm.playerUI.AddSubtleMessageForPlayer(playerId,
-                    "Spawning " .. objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
+                    action .. " " .. objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
                 playerData.sprinkleGen = nil
                 playerData.spawnMessageId = nil
             end

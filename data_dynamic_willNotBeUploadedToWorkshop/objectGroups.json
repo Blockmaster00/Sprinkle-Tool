@@ -1,18 +1,20 @@
 [
 {
-    "name":"New Group 1",
+    "name":"Desert",
+    "groupId":"211.106826782227_9905",
     "position":{
-        "x":-3.6588921546936035,
-        "y":300.14715576171875,
-        "z":1.5993139743804932
+        "x":0,
+        "y":302,
+        "z":0
     },
     "size":{
-        "x":100,
+        "x":200,
         "z":200
     },
     "objects":[
 {
         "name":"PFB_PalmFern_Medium",
+        "likeliness":1,
         "prefab":true,
         "offset":{
             "x":0,
@@ -30,240 +32,44 @@
             "y":1,
             "z":1
         }
+    },
+{
+        "name":"speaker.obj",
+        "likeliness":1,
+        "prefab":false,
+        "offset":{
+            "x":0,
+            "y":0,
+            "z":0
+        },
+        "scaleSeperate":true,
+        "minScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "maxScale":{
+            "x":1,
+            "y":1,
+            "z":1
+        },
+        "texture":"speaker.png"
     }]
-
+,
+    "heatmapPath":"heatmap.json"
 },
 {
     "name":"New Group 2",
+    "groupId":"315.010345458984_9254",
     "position":{
-        "x":730.4124755859375,
-        "y":827.47979736328125,
-        "z":794.846923828125
+        "x":-111.96747589111328,
+        "y":349.96957397460938,
+        "z":64.333488464355469
     },
     "size":{
-        "x":100,
-        "z":500
-    },
-    "objects":[
-{
-        "name":"PFB_PalmFern_Medium",
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    }]
-
-},
-{
-    "name":"New Group 3",
-    "position":{
-        "x":321.13803100585938,
-        "y":903.42974853515625,
-        "z":593.64971923828125
-    },
-    "size":{
-        "x":1000,
+        "x":10,
         "z":100
     },
-    "objects":[
-{
-        "name":"PFB_PalmFern_Medium",
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":5,
-            "z":1
-        }
-    }]
-,
-    "visible":false
-},
-{
-    "name":"DesertMap",
-    "position":{
-        "x":0,
-        "y":1500,
-        "z":0
-    },
-    "size":{
-        "x":15000,
-        "z":15000
-    },
-    "objects":[
-{
-        "name":"PFB_Cactus_Bush",
-        "likeliness":10,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":false,
-        "minScale":1,
-        "maxScale":2,
-        "scale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    },
-{
-        "name":"PFB_Cactus_Mini",
-        "likeliness":50,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    },
-{
-        "name":"PFB_INS_Savannah_Bush_Small",
-        "likeliness":1,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    }]
-
-},
-{
-    "name":"MountainMap",
-    "position":{
-        "x":0,
-        "y":1200,
-        "z":0
-    },
-    "size":{
-        "x":15000,
-        "z":15000
-    },
-    "objects":[
-{
-        "name":"PFB_Tall_SlenderPine_1",
-        "likeliness":1,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":2,
-            "z":1
-        }
-    }]
-
-},
-{
-    "name":"New Group 6",
-    "position":{
-        "x":-3900,
-        "y":1400,
-        "z":5850
-    },
-    "size":{
-        "x":50,
-        "z":50
-    },
-    "objects":[
-{
-        "name":"PFB_PalmFern_Medium",
-        "likeliness":10,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    },
-{
-        "name":"PFB_CharredTree2",
-        "likeliness":90,
-        "prefab":true,
-        "offset":{
-            "x":0,
-            "y":0,
-            "z":0
-        },
-        "scaleSeperate":true,
-        "minScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        },
-        "maxScale":{
-            "x":1,
-            "y":1,
-            "z":1
-        }
-    }]
-
+    "objects":{
+    }
 }]
