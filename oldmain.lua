@@ -250,7 +250,7 @@ local function spawnObjectsOfGroup(callbackData)
     }
     tm.os.Log("Exporting MapData to: "..saveDataPath)
     local jsonString = json.serialize(mapData)
-    local jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
+    jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
     tm.os.WriteAllText_Dynamic(saveDataPath, jsonString)
 end
 

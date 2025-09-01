@@ -1,8 +1,70 @@
 local SPAWNS_PER_UPDATE = 100
+local MAP_DATA = {
+    ObjectList = {},
+    CameraInfo = {
+        P = {
+            x = 0, --set to Player Position
+            y = 0,
+            z = 0
+        },
+        R = {
+            x = 0,
+            y = 0,
+            z = 0
+        },
+        S = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        },
+        N = "",
+        I = {
+            IsStatic = false,
+            CanCollide = false,
+            IsVisible = false,
+            DisplayName = "",
+            CustomTexture = "",
+            CustomModel = false,
+            CustomWeight = 0.0
+        }
+    },
+    SpawnpointInfo = {
+        P = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        },
+        R = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        },
+        S = {
+            x = 1.0,
+            y = 1.0,
+            z = 1.0
+        },
+        N = "",
+        I = {
+            IsStatic = false,
+            CanCollide = false,
+            IsVisible = false,
+            DisplayName = "",
+            CustomTexture = "",
+            CustomModel = false,
+            CustomWeight = 0.0
+        }
+    },
+    Name = "sprinkleTool",
+    PrettyPrint = false,
+    Version = "1.3"
+}
 
 
-local spawnedObjects = {
-    --"groupId" = {obj1, obj2, obj3...}
+
+local spawnedGroups = {
+    --"groupId" = {obj1, obj2, obj3...},
+    --"groupId2" = {obj1, obj2, ....}, ...
 }
 
 local customTextures = {}
@@ -53,6 +115,62 @@ local colors = {
 
 --#region Functions
 ---------------------------------------------------- Functions ---------------------------------------------------
+
+local function exportAllGroups()
+    local mapData = {
+        ObjectList = {},
+        CameraInfo = MAP_DATA.CameraInfo,
+        SpawnpointInfo = MAP_DATA.SpawnpointInfo,
+        Name = MAP_DATA.Name,
+        PrettyPrint = MAP_DATA.PrettyPrint,
+        Version = MAP_DATA.Version
+    }
+    for i, group in pairs(spawnedGroups) do
+        for j, object in ipairs(group) do
+
+            tm.os.Log("adding: ".. object.name .. " to export data.")
+
+            local objReference = object.objectReference
+
+            local objTransform = objReference.GetTransform()
+            local objPos = objTransform.GetPosition()
+            local objRotation = objTransform.GetRotation()
+            local objScale = objTransform.GetScale()
+
+            table.insert(mapData.ObjectList, {
+                P = {
+                    x = objPos.x,
+                    y = objPos.y - 300, --offset because of Trailmappers
+                    z = objPos.z
+                },
+                R = {
+                    x = objRotation.x,
+                    y = objRotation.y,
+                    z = objRotation.z
+                },
+                S = {
+                    x = objScale.x,
+                    y = objScale.y,
+                    z = objScale.z
+                },
+                N = object.name,
+                I = {
+                    IsStatic = objReference.GetIsStatic(),
+                    CanCollide = true,
+                    IsVisible = objReference.GetIsVisible(),
+                    DisplayName = "Sprinkle Tool Object",
+                    CustomTexture = object.prefab and "" or "\\Custom Models\\" .. object.texture,
+                    CustomModel = object.prefab and object.name or "\\Custom Models\\" .. object.name,
+                    CustomWeight = 0.0
+                }
+            })
+        end
+    end
+    local jsonString = json.serialize(mapData)
+    jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
+    tm.os.WriteAllText_Dynamic("exportedMap" .. tm.os.GetTime() .. ".json", jsonString)
+    tm.os.Log("Exported all groups to exportedMap.json")
+end
 
 local function prepareWeightedTable(objects)
     local cumulative = {}
@@ -147,7 +265,7 @@ local function spawnObject(object, position)
     objectTransform.SetRotation(rotation)
     objectTransform.SetScale(scale)
     tm.os.Log("Spawned Object: " .. object.name)
-    return objectReference
+    return { objectReference = objectReference, name = object.name, prefab = object.prefab }
 end
 
 local function spawnGroup(group, amount)
@@ -164,9 +282,11 @@ local function spawnGroup(group, amount)
     local heatmap = loadHeatmap(group.heatmapPath)
     tm.os.Log("using heatmap: " .. tostring(heatmap ~= nil))
 
+    if spawnedGroups[group.groupId] == nil then
+        spawnedGroups[group.groupId] = {}
+    end
 
     local i = 0
-    local spawnedObjectsInGroup = {}
     while i < amount do
         local raycastPos = tm.vector3.Create(
             math.random(minSpawnPosX, maxSpawnPosX),
@@ -179,24 +299,25 @@ local function spawnGroup(group, amount)
         if raycast.DidHit() then
             local hitPos = raycast.GetHitPosition()
             if heatmap ~= nil then
-                local hitIndex_X = math.max(1, math.min(heatmap.width, math.floor(((hitPos.x - minSpawnPosX) / groupSize.x) * heatmap.width)))
-                local hitIndex_Y = math.max(1, math.min(heatmap.height, math.floor(((hitPos.z - minSpawnPosZ) / groupSize.z) * heatmap.height)))
-                tm.os.Log("hitIndex_X: " .. hitIndex_X .. ", hitIndex_Y: " .. hitIndex_Y)
+                local hitIndex_X = math.max(1,
+                    math.min(heatmap.width, math.floor(((hitPos.x - minSpawnPosX) / groupSize.x) * heatmap.width)))
+                local hitIndex_Y = math.max(1,
+                    math.min(heatmap.height, math.floor(((hitPos.z - minSpawnPosZ) / groupSize.z) * heatmap.height)))
 
                 local randomValue = math.random()
-                tm.os.Log("heatmap value: " .. tostring(heatmap.data[hitIndex_X] and heatmap.data[hitIndex_X][hitIndex_Y]))
-                tm.os.Log("random value: " .. tostring(randomValue))
+
+                tm.os.Log("hitIndex_X: " .. hitIndex_X .. ", hitIndex_Y: " .. hitIndex_Y .. ", heatmap value: " ..
+                    heatmap.data[hitIndex_X][hitIndex_Y] .. ", randomValue: " .. randomValue)
 
                 if heatmap.data[hitIndex_X][hitIndex_Y] < randomValue then
                     tm.os.Log("hitpos rejected by heatmap")
                     goto continue
                 end
-                tm.os.Log("hitpos accepted by heatmap")
             end
 
             i = i + 1
             local randomObj = weightedRandom(objects, cumulative, total)
-            table.insert(spawnedObjectsInGroup, spawnObject(randomObj, hitPos))
+            table.insert(spawnedGroups[group.groupId], spawnObject(randomObj, hitPos))
             tm.os.Log(i)
             if i % SPAWNS_PER_UPDATE == 0 then
                 tm.os.Log("yielding spawning")
@@ -205,18 +326,25 @@ local function spawnGroup(group, amount)
         end
         ::continue::
     end
-    spawnedObjects[group.groupId] = spawnedObjectsInGroup
 end
 
 local function despawnGroup(groupId)
-    local spawnedObjectsGroup = spawnedObjects[groupId] or {}
-    for i, obj in ipairs(spawnedObjectsGroup) do
-        obj.Despawn()
+    local spawnedGroupsGroup = spawnedGroups[groupId] or {}
+    tm.os.Log("amount to despawn: " .. #spawnedGroupsGroup)
+    for i, obj in ipairs(spawnedGroupsGroup) do
+        local objectReference = obj.objectReference
+        local success, err = pcall(function() return objectReference.Despawn() end)
+        if not success then
+            tm.os.Log("Failed to despawn object: " .. err)
+        end
+        obj = nil
+        tm.os.Log(i)
         if i % SPAWNS_PER_UPDATE == 0 then
             tm.os.Log("yielding despawn")
             coroutine.yield(i)
         end
     end
+    spawnedGroups[groupId] = {}
 end
 
 local function showGroupPreview(playerId, group)
@@ -249,6 +377,9 @@ end
 
 local function drawUI_StartMenu(playerId)
     tm.playerUI.AddUIButton(playerId, "btnGroupList", "Group List", function() UpdateUI(playerId, "groupList") end)
+
+    tm.playerUI.AddUIButton(playerId, "btnExportAll", "Export All Groups", function() exportAllGroups() end)
+
     tm.playerUI.AddUILabel(playerId, "lblCredit", "<color=#BEAED5>by Blockhampter</color>")
 end
 
@@ -342,6 +473,15 @@ local function drawUI_EditGroup(playerId, data)
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblPosition", "Position (x, y, z)")
+
+    tm.playerUI.AddUIButton(playerId, "btnSetPosToPlayer", "Set to Player Position", function()
+        local playerPos = tm.players.GetPlayerTransform(playerId).GetPosition()
+        group.position.x = playerPos.x
+        group.position.y = playerPos.y
+        group.position.z = playerPos.z
+        UpdateUI(playerId, "editGroup")
+    end)
+
     tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function(CallbackData)
         group.position.x = tonumber(CallbackData.value) or group.position.x
         UpdateUI(playerId, "editGroup")
@@ -604,9 +744,11 @@ local function drawUI_SpawnGroup(playerId, data)
         data.sprinkleGen = sprinkleGen
     end)
     tm.playerUI.AddUIButton(playerId, "btnDespawnObjects", "Despawn Objects", function()
+        tm.os.Log("Despawning objects in group: " .. group.name)
+        tm.os.Log("Amount of objects to despawn: " .. (#spawnedGroups[group.groupId] or 0))
         local sprinkleGen = {
             action = "Despawning",
-            amount = #spawnedObjects[group.groupId],
+            amount = #spawnedGroups[group.groupId],
             coroutine = coroutine.create(function()
                 despawnGroup(group.groupId)
             end)
@@ -679,6 +821,7 @@ function update()
                 local ok, index = coroutine.resume(sprinkleGen.coroutine)
                 if ok then
                     if index == nil then
+                        tm.os.Log("Fatal Flaw in coroutine")
                         break
                     end
                     tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
