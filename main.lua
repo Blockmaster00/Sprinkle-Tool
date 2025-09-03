@@ -116,7 +116,7 @@ local colors = {
 --#region Functions
 ---------------------------------------------------- Functions ---------------------------------------------------
 
-local function exportAllGroups()
+local function exportAllGroups(playerId)
     local mapData = {
         ObjectList = {},
         CameraInfo = MAP_DATA.CameraInfo,
@@ -127,8 +127,7 @@ local function exportAllGroups()
     }
     for i, group in pairs(spawnedGroups) do
         for j, object in ipairs(group) do
-
-            tm.os.Log("adding: ".. object.name .. " to export data.")
+            tm.os.Log("adding: " .. object.name .. " to export data.")
 
             local objReference = object.objectReference
 
@@ -168,8 +167,13 @@ local function exportAllGroups()
     end
     local jsonString = json.serialize(mapData)
     jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
-    tm.os.WriteAllText_Dynamic("exportedMap" .. tm.os.GetTime() .. ".json", jsonString)
-    tm.os.Log("Exported all groups to exportedMap.json")
+
+    local timeStamp = os.date("%d%m%Y_%H%M%S")
+
+    tm.os.WriteAllText_Dynamic("exportedMap" .. timeStamp .. ".json", jsonString)
+    tm.playerUI.AddSubtleMessageForPlayer(playerId, "Exported Map as:",
+        "exportedMap" .. timeStamp .. ".json", 10)
+    tm.os.Log("Exported as exportedMap"..timeStamp..".json")
 end
 
 local function prepareWeightedTable(objects)
@@ -378,9 +382,21 @@ end
 local function drawUI_StartMenu(playerId)
     tm.playerUI.AddUIButton(playerId, "btnGroupList", "Group List", function() UpdateUI(playerId, "groupList") end)
 
-    tm.playerUI.AddUIButton(playerId, "btnExportAll", "Export All Groups", function() exportAllGroups() end)
+    tm.playerUI.AddUIButton(playerId, "btnSettings", colors.teal .. "Settings" .. "</color>",
+        function() UpdateUI(playerId, "settings") end)
 
+    tm.playerUI.AddUIButton(playerId, "btnExportAll", "Export All Groups", function() exportAllGroups(playerId) end)
+
+
+    tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- * -~")
     tm.playerUI.AddUILabel(playerId, "lblCredit", "<color=#BEAED5>by Blockhampter</color>")
+end
+
+local function drawUI_Settings(playerId)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function()
+        UpdateUI(playerId, "startMenu")
+    end)
+
 end
 
 local function drawUI_GroupList(playerId, data)
@@ -461,15 +477,20 @@ local function drawUI_EditGroup(playerId, data)
         tm.os.WriteAllText_Dynamic("objectGroups.json", json.serialize(objectGroups))
     end)
 
-    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function(CallbackData)
-        group.name = CallbackData.value
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtGroupName", group.name, function(UICallbackData)
+        if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Name", "Name cannot be empty", 5)
+            return
+        end
+        group.name = UICallbackData.value
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblHeatmap", "Heatmap Path (optional)")
-    tm.playerUI.AddUIText(playerId, "txtHeatmapPath", group.heatmapPath or "", function(CallbackData)
-        group.heatmapPath = CallbackData.value
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtHeatmapPath", group.heatmapPath or "", function(UICallbackData)
+        if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Heatmap disabled", "Heatmap field is empty", 5)
+        end
+        group.heatmapPath = UICallbackData.value
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblPosition", "Position (x, y, z)")
@@ -482,27 +503,47 @@ local function drawUI_EditGroup(playerId, data)
         UpdateUI(playerId, "editGroup")
     end)
 
-    tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function(CallbackData)
-        group.position.x = tonumber(CallbackData.value) or group.position.x
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtPosX", group.position.x, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Position must be a number", 5)
+            return
+        end
+        group.position.x = tonumber(UICallbackData.value)
+        showGroupPreview(playerId, group)
     end)
-    tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function(CallbackData)
-        group.position.y = tonumber(CallbackData.value) or group.position.y
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtPosY", group.position.y, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Position must be a number", 5)
+            return
+        end
+        group.position.y = tonumber(UICallbackData.value) or group.position.y
+        showGroupPreview(playerId, group)
     end)
-    tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function(CallbackData)
-        group.position.z = tonumber(CallbackData.value) or group.position.z
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtPosZ", group.position.z, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Position must be a number", 5)
+            return
+        end
+        group.position.z = tonumber(UICallbackData.value) or group.position.z
+        showGroupPreview(playerId, group)
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblSize", "Size (x, z)")
-    tm.playerUI.AddUIText(playerId, "txtSizeX", group.size.x or 1, function(CallbackData)
-        group.size.x = tonumber(CallbackData.value)
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtSizeX", group.size.x or 1, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Size must be a number", 5)
+            return
+        end
+        group.size.x = tonumber(UICallbackData.value)
+        showGroupPreview(playerId, group)
     end)
-    tm.playerUI.AddUIText(playerId, "txtSizeZ", group.size.z or 1, function(CallbackData)
-        group.size.z = tonumber(CallbackData.value)
-        UpdateUI(playerId, "editGroup")
+    tm.playerUI.AddUIText(playerId, "txtSizeZ", group.size.z or 1, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Size must be a number", 5)
+            return
+        end
+        group.size.z = tonumber(UICallbackData.value)
+        showGroupPreview(playerId, group)
     end)
 end
 
@@ -602,15 +643,21 @@ local function drawUI_EditObject(playerId, data)
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblObjectName", "Name:")
-    tm.playerUI.AddUIText(playerId, "txtObjectName", object.name, function(CallbackData)
-        object.name = CallbackData.value
-        UpdateUI(playerId, "editObject")
+    tm.playerUI.AddUIText(playerId, "txtObjectName", object.name, function(UICallbackData)
+        if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Name", "Name cannot be empty", 5)
+            return
+        end
+        object.name = UICallbackData.value
     end)
 
     if not object.prefab then
-        tm.playerUI.AddUIText(playerId, "txtObjectTexture", object.texture or "Texture.png", function(CallbackData)
-            object.texture = CallbackData.value
-            UpdateUI(playerId, "editObject")
+        tm.playerUI.AddUIText(playerId, "txtObjectTexture", object.texture or "Texture.png", function(UICallbackData)
+            if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Texture", "Texture cannot be empty", 5)
+                return
+            end
+            object.texture = UICallbackData.value
         end)
     end
 
@@ -623,26 +670,38 @@ local function drawUI_EditObject(playerId, data)
     tm.playerUI.AddUILabel(playerId, "lblLikeliness", "Likeliness")
     tm.playerUI.AddUILabel(playerId, "lblLikeliness2", "<size=10>how likely the object is to be spawned</size>")
     tm.playerUI.AddUIText(playerId, "txtLikeliness", object.likeliness, function(UICallbackData)
-        object.likeliness = tonumber(UICallbackData.value) or 1
-        UpdateUI(playerId, "editObject")
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Likeliness must be a number", 5)
+            return
+        end
+        object.likeliness = tonumber(UICallbackData.value)
     end)
 
     tm.playerUI.AddUILabel(playerId, "lblOffset", "Offset (x, y, z):")
     tm.playerUI.AddUIText(playerId, "txtOffsetX", object.offset.x, function(UICallbackData)
-        object.offset.x = tonumber(UICallbackData.value) or 0
-        UpdateUI(playerId, "editObject")
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Offset must be a number", 5)
+            return
+        end
+        object.offset.x = tonumber(UICallbackData.value)
     end)
     tm.playerUI.AddUIText(playerId, "txtOffsetY", object.offset.y, function(UICallbackData)
-        object.offset.y = tonumber(UICallbackData.value) or 0
-        UpdateUI(playerId, "editObject")
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Offset must be a number", 5)
+            return
+        end
+        object.offset.y = tonumber(UICallbackData.value)
     end)
     tm.playerUI.AddUIText(playerId, "txtOffsetZ", object.offset.z, function(UICallbackData)
-        object.offset.z = tonumber(UICallbackData.value) or 0
-        UpdateUI(playerId, "editObject")
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Offset must be a number", 5)
+            return
+        end
+        object.offset.z = tonumber(UICallbackData.value)
     end)
 
     tm.playerUI.AddUIButton(playerId, "btnScaleMode",
-        "Scale mode: " .. (object.scaleSeperate == true and "Seperate" or "Uniform"), function(CallbackData)
+        "Scale mode: " .. (object.scaleSeperate == true and "Seperate" or "Uniform"), function(UICallbackData)
             object.scaleSeperate = not object.scaleSeperate
             if object.scaleSeperate then
                 object.minScale = { x = 1, y = 1, z = 1 }
@@ -658,54 +717,87 @@ local function drawUI_EditObject(playerId, data)
     if object.scaleSeperate then
         tm.playerUI.AddUILabel(playerId, "lblMinScale", "Min Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMinScaleX", object.minScale.x, function(UICallbackData)
-            object.minScale.x = tonumber(UICallbackData.value) or object.minScale.x
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.minScale.x = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtMinScaleY", object.minScale.y, function(UICallbackData)
-            object.minScale.y = tonumber(UICallbackData.value) or object.minScale.y
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.minScale.y = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtMinScaleZ", object.minScale.z, function(UICallbackData)
-            object.minScale.z = tonumber(UICallbackData.value) or object.minScale.z
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.minScale.z = tonumber(UICallbackData.value)
         end)
 
         tm.playerUI.AddUILabel(playerId, "lblMaxScale", "Max Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtMaxScaleX", object.maxScale.x, function(UICallbackData)
-            object.maxScale.x = tonumber(UICallbackData.value) or object.maxScale.x
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.maxScale.x = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScaleY", object.maxScale.y, function(UICallbackData)
-            object.maxScale.y = tonumber(UICallbackData.value) or object.maxScale.y
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.maxScale.y = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScaleZ", object.maxScale.z, function(UICallbackData)
-            object.maxScale.z = tonumber(UICallbackData.value) or object.maxScale.z
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.maxScale.z = tonumber(UICallbackData.value)
         end)
     else
         tm.playerUI.AddUILabel(playerId, "lblScale", "Scale multiplier (min, max):")
         tm.playerUI.AddUIText(playerId, "txtMinScale", object.minScale, function(UICallbackData)
-            object.minScale = tonumber(UICallbackData.value) or object.minScale
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.minScale = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtMaxScale", object.maxScale, function(UICallbackData)
-            object.maxScale = tonumber(UICallbackData.value) or object.maxScale
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.maxScale = tonumber(UICallbackData.value)
         end)
 
         tm.playerUI.AddUILabel(playerId, "lblScale", "Scale (x, y, z):")
         tm.playerUI.AddUIText(playerId, "txtScaleX", object.scale.x, function(UICallbackData)
-            object.scale.x = tonumber(UICallbackData.value) or object.scale.x
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.scale.x = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtScaleY", object.scale.y, function(UICallbackData)
-            object.scale.y = tonumber(UICallbackData.value) or object.scale.y
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.scale.y = tonumber(UICallbackData.value)
         end)
         tm.playerUI.AddUIText(playerId, "txtScaleZ", object.scale.z, function(UICallbackData)
-            object.scale.z = tonumber(UICallbackData.value) or object.scale.z
-            UpdateUI(playerId, "editObject")
+            if tonumber(UICallbackData.value) == nil then
+                tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Scale must be a number", 5)
+                return
+            end
+            object.scale.z = tonumber(UICallbackData.value)
         end)
     end
 end
@@ -726,9 +818,12 @@ local function drawUI_SpawnGroup(playerId, data)
     tm.playerUI.AddUILabel(playerId, "lblSpawnGroup", "Spawn Group: " .. group.name)
 
     tm.playerUI.AddUILabel(playerId, "lblObjectsToSpawn", "Objects to spawn:")
-    tm.playerUI.AddUIText(playerId, "txtObjectsToSpawn", data.amountToSpawn, function(CallbackData)
-        data.amountToSpawn = tonumber(CallbackData.value) or 100
-        UpdateUI(playerId, "spawnGroup")
+    tm.playerUI.AddUIText(playerId, "txtObjectsToSpawn", data.amountToSpawn, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Amount must be a number", 5)
+            return
+        end
+        data.amountToSpawn = tonumber(UICallbackData.value)
     end)
     tm.playerUI.AddUIButton(playerId, "btnSpawnObjects", "Spawn Objects", function()
         local sprinkleGen = {
@@ -764,6 +859,9 @@ function UpdateUI(playerId, modeName)
     local mode = {
         ["startMenu"] = function(playerId, data)
             drawUI_StartMenu(playerId)
+        end,
+        ["settings"] = function(playerId, data)
+            drawUI_Settings(playerId)
         end,
         ["groupList"] = function(playerId, data)
             drawUI_GroupList(playerId, data)
@@ -824,8 +922,9 @@ function update()
                         tm.os.Log("Fatal Flaw in coroutine")
                         break
                     end
+                    tm.os.Log(action .. " progress: " .. index .. "/" .. sprinkleGen.amount)
                     tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
-                        math.ceil((index / playerData.amountToSpawn) * 100) .. "%")
+                        math.ceil((index / sprinkleGen.amount) * 100) .. "%")
                 else
                     tm.os.Log("reached end or fatal Flaw")
                     tm.os.Log("Error: " .. index)
