@@ -1,4 +1,5 @@
-local SPAWNS_PER_UPDATE = 100
+VERSION = "1.3"
+
 local MAP_DATA = {
     ObjectList = {},
     CameraInfo = {
@@ -60,8 +61,6 @@ local MAP_DATA = {
     Version = "1.3"
 }
 
-
-
 local spawnedGroups = {
     --"groupId" = {obj1, obj2, obj3...},
     --"groupId2" = {obj1, obj2, ....}, ...
@@ -69,6 +68,18 @@ local spawnedGroups = {
 
 local customTextures = {}
 local customMeshes = {}
+
+local success, settings = pcall(function() return json.parse(tm.os.ReadAllText_Dynamic("settings.json")) end)
+if not success then
+    settings = {
+        spawnsPerUpdate = 100,
+        defaultObject = "PFB_PalmFern_Medium",
+    }
+    tm.os.Log("Settings file not found -> Creating new file")
+    local jsonString = json.serialize(settings)
+    jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
+    tm.os.WriteAllText_Dynamic("settings.json", jsonString)
+end
 
 local success, objectGroups = pcall(function() return json.parse(tm.os.ReadAllText_Dynamic("objectGroups.json")) end)
 if not success then
@@ -80,7 +91,7 @@ if not success then
 end
 
 local newObjectTemplate = {
-    name = "PFB_PalmFern_Medium",
+    name = settings.defaultObject,
     prefab = true, -- true = prefab, false = custom object
     likeliness = 1,
     offset = {
@@ -125,6 +136,10 @@ local function exportAllGroups(playerId)
         PrettyPrint = MAP_DATA.PrettyPrint,
         Version = MAP_DATA.Version
     }
+    if not next(spawnedGroups) then
+        tm.playerUI.AddSubtleMessageForPlayer(playerId, "No objects to export", "Spawn some objects first", 5)
+        return
+    end
     for i, group in pairs(spawnedGroups) do
         for j, object in ipairs(group) do
             tm.os.Log("adding: " .. object.name .. " to export data.")
@@ -168,12 +183,12 @@ local function exportAllGroups(playerId)
     local jsonString = json.serialize(mapData)
     jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
 
-    local timeStamp = os.date("%d%m%Y_%H%M%S")
+    local timeStamp = os.date("%d-%m-%Y_%H%M%S")
 
     tm.os.WriteAllText_Dynamic("exportedMap" .. timeStamp .. ".json", jsonString)
     tm.playerUI.AddSubtleMessageForPlayer(playerId, "Exported Map as:",
         "exportedMap" .. timeStamp .. ".json", 10)
-    tm.os.Log("Exported as exportedMap"..timeStamp..".json")
+    tm.os.Log("Exported as exportedMap" .. timeStamp .. ".json")
 end
 
 local function prepareWeightedTable(objects)
@@ -323,7 +338,7 @@ local function spawnGroup(group, amount)
             local randomObj = weightedRandom(objects, cumulative, total)
             table.insert(spawnedGroups[group.groupId], spawnObject(randomObj, hitPos))
             tm.os.Log(i)
-            if i % SPAWNS_PER_UPDATE == 0 then
+            if i % settings.spawnsPerUpdate == 0 then
                 tm.os.Log("yielding spawning")
                 coroutine.yield(i)
             end
@@ -343,7 +358,7 @@ local function despawnGroup(groupId)
         end
         obj = nil
         tm.os.Log(i)
-        if i % SPAWNS_PER_UPDATE == 0 then
+        if i % settings.spawnsPerUpdate == 0 then
             tm.os.Log("yielding despawn")
             coroutine.yield(i)
         end
@@ -380,16 +395,40 @@ end
 ------------------------------------------------------- UI -------------------------------------------------------
 
 local function drawUI_StartMenu(playerId)
-    tm.playerUI.AddUIButton(playerId, "btnGroupList", "Group List", function() UpdateUI(playerId, "groupList") end)
+    tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- Main Menu -~")
+    tm.playerUI.AddUIButton(playerId, "btnGroupList", colors.yellow .. "Group List" .. "</color>",
+        function() UpdateUI(playerId, "groupList") end)
+
+    local hasSpawnedGroups = next(spawnedGroups) ~= nil
+    local color = hasSpawnedGroups and colors.dark_green or colors.orange
+    tm.playerUI.AddUIButton(playerId, "btnExportAll", color .. "Export All Groups" .. "</color>",
+        function() exportAllGroups(playerId) end)
 
     tm.playerUI.AddUIButton(playerId, "btnSettings", colors.teal .. "Settings" .. "</color>",
         function() UpdateUI(playerId, "settings") end)
 
-    tm.playerUI.AddUIButton(playerId, "btnExportAll", "Export All Groups", function() exportAllGroups(playerId) end)
-
-
     tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- * -~")
+
+    tm.playerUI.AddUIButton(playerId, "btnAbout", colors.purple .. "About" .. "</color>",
+        function() UpdateUI(playerId, "about") end)
     tm.playerUI.AddUILabel(playerId, "lblCredit", "<color=#BEAED5>by Blockhampter</color>")
+end
+
+local function drawUI_About(playerId)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "startMenu") end)
+
+    tm.playerUI.AddUILabel(playerId, "lblAbout1", "Sprinkle Tool ".. VERSION)
+    tm.playerUI.AddUILabel(playerId, "lblAbout3", "This mod is in 'active'")
+    tm.playerUI.AddUILabel(playerId, "lblAbout4", "development. Please feel")
+    tm.playerUI.AddUILabel(playerId, "lblAbout5", "invited to give me feedback")
+    tm.playerUI.AddUILabel(playerId, "lblAbout6", "and suggestions for new features.")
+    tm.playerUI.AddUILabel(playerId, "lblAbout7", "You can reach me on Discord")
+    tm.playerUI.AddUILabel(playerId, "lblAbout8", "under the username:")
+    tm.playerUI.AddUILabel(playerId, "lblAbout9", "<color=#BEAED5><i>blockhampter</i></color>")
+    tm.playerUI.AddUILabel(playerId, "lblAbout10", "I hope you enjoy using this mod!")
+    tm.playerUI.AddUILabel(playerId, "lblCredit", ":D")
+
+
 end
 
 local function drawUI_Settings(playerId)
@@ -397,6 +436,33 @@ local function drawUI_Settings(playerId)
         UpdateUI(playerId, "startMenu")
     end)
 
+    tm.playerUI.AddUILabel(playerId, "lblSpawnsPerUpdate", "Spawns/Despawns per update")
+    tm.playerUI.AddUIText(playerId, "txtSpawnsPerUpdate", settings.spawnsPerUpdate, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil or tonumber(UICallbackData.value) < 1 then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Value must be a number > 0", 5)
+            return
+        end
+        settings.spawnsPerUpdate = tonumber(UICallbackData.value)
+        tm.os.Log("Spawns/Despawns per update set to: " .. settings.spawnsPerUpdate)
+    end)
+
+    tm.playerUI.AddUILabel(playerId, "lblDefaultObject", "Default Object for new objects")
+    tm.playerUI.AddUIText(playerId, "txtDefaultObject", settings.defaultObject, function(UICallbackData)
+        if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Name", "Name cannot be empty", 5)
+            return
+        end
+        settings.defaultObject = UICallbackData.value
+        newObjectTemplate.name = settings.defaultObject
+        tm.os.Log("Default Object set to: " .. settings.defaultObject)
+    end)
+    tm.playerUI.AddUIButton(playerId, "btnSaveSettings", "Save Settings", function()
+        tm.os.Log("Saving settings")
+        local jsonString = json.serialize(settings)
+        jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
+        tm.os.WriteAllText_Dynamic("settings.json", jsonString)
+        tm.playerUI.AddSubtleMessageForPlayer(playerId, "Settings saved", "settings.json", 5)
+    end)
 end
 
 local function drawUI_GroupList(playerId, data)
@@ -877,6 +943,9 @@ function UpdateUI(playerId, modeName)
         end,
         ["spawnGroup"] = function(playerId, data)
             drawUI_SpawnGroup(playerId, data)
+        end,
+        ["about"] = function(playerId, data)
+            drawUI_About(playerId)
         end
     }
     local uiData = playerUIData[playerId]
@@ -946,16 +1015,5 @@ local function main()
         uiMenu = "startMenu"
     }
     UpdateUI(0, "startMenu")
-    --[[     local ascii = ""
-    local data = tm.os.ReadAllText_Static("image.png")
-    for i = 1, #data do
-        local b = string.byte(data, i)
-        ascii = ascii .. tostring(b)
-    end
-    tm.os.Log(ascii) ]]
 end
 main()
-
-function OnPlayerJoined(player)
-    UpdateUI(player.playerId, "startMenu")
-end
