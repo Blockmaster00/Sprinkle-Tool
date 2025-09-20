@@ -409,26 +409,84 @@ local function drawUI_StartMenu(playerId)
 
     tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- * -~")
 
+    tm.playerUI.AddUIButton(playerId, "btnHelp", colors.blue .. "Help" .. "</color>",
+        function() UpdateUI(playerId, "help") end)
+
     tm.playerUI.AddUIButton(playerId, "btnAbout", colors.purple .. "About" .. "</color>",
         function() UpdateUI(playerId, "about") end)
     tm.playerUI.AddUILabel(playerId, "lblCredit", "<color=#BEAED5>by Blockhampter</color>")
 end
 
+local function drawUI_Help(playerId)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "startMenu") end)
+    tm.playerUI.AddUIButton(playerId, "btnFAQ", "FAQ", function()
+        UpdateUI(playerId, "helpFAQ")
+    end)
+
+    tm.playerUI.AddUILabel(playerId, "lblHelp1", colors.dark_green .. "How to use the Sprinkle Tool:" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblHelp3", "1. Create a group in the")
+    tm.playerUI.AddUILabel(playerId, "lblHelp3_2", "   Group List")
+    tm.playerUI.AddUILabel(playerId, "lblHelp4", "2. Edit the group to set")
+    tm.playerUI.AddUILabel(playerId, "lblHelp4_2", "   position and size")
+    tm.playerUI.AddUILabel(playerId, "lblHelp5", "   - You can also set a heatmap")
+    tm.playerUI.AddUILabel(playerId, "lblHelp6", "     to control where objects")
+    tm.playerUI.AddUILabel(playerId, "lblHelp6_2", "     are more likely to spawn")
+    tm.playerUI.AddUILabel(playerId, "lblHelp7", "3. Add objects to the group")
+    tm.playerUI.AddUILabel(playerId, "lblHelp8", "4. Spawn the group to spawn")
+    tm.playerUI.AddUILabel(playerId, "lblHelp8_2", "   objects")
+    tm.playerUI.AddUILabel(playerId, "lblHelp9", "5. Export all groups to a")
+    tm.playerUI.AddUILabel(playerId, "lblHelp9_2", "   map file")
+    tm.playerUI.AddUILabel(playerId, "lblHelp10", "6. Save the exported map file")
+    tm.playerUI.AddUILabel(playerId, "lblHelp11", "   in a folder in")
+    tm.playerUI.AddUILabel(playerId, "lblHelp12", "   Documents/Trailmappers/Saves/")
+end
+
+local function drawUI_HelpFAQ(playerId)
+    tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "help") end)
+    tm.playerUI.AddUILabel(playerId, "lblFAQ1", "FAQ:")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ3", colors.dark_green .. "Q: How do I create a heatmap?" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ3_2", "A: I am currently working on")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ3_3", "   a program to convert black")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ3_4", "   and white images to heatmaps.")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ4", "   Until then, you can DM me")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ4_2", "   on Discord and I will")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ4_3", "   convert it for you :)")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5", colors.dark_green .. "Q: Can I use custom models and" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_2", colors.dark_green .. "   textures?" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_3", "A: Yes! Just make sure to put")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_4", "   the model and texture files")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_5", "   in:")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_6", "   Program Files (x86)/Steam/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_7", "   steamapps/workshop/content/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_8", "   585420/3457144914/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_9", colors.dark_green .. "Q: Where do the map files export" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_10", colors.dark_green .. "   to?" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_11", "A: The map files export to:")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_12", "   Program Files (x86)/Steam/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_13", "   steamapps/workshop/content/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_14", "   585420/3457144914/data_dynamic/")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_15", colors.dark_green .. "Q: The mod isn't working / I" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_16", colors.dark_green .. "   found a bug" .. "</color>")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_17", "A: Please reach out to me on")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_18", "   Discord: blockhampter")
+    tm.playerUI.AddUILabel(playerId, "lblFAQ5_19", "   i am happy to help :)")
+end
+
+
+
 local function drawUI_About(playerId)
     tm.playerUI.AddUIButton(playerId, "btnReturn", btnReturn, function() UpdateUI(playerId, "startMenu") end)
 
-    tm.playerUI.AddUILabel(playerId, "lblAbout1", "Sprinkle Tool ".. VERSION)
+    tm.playerUI.AddUILabel(playerId, "lblAbout1", "Sprinkle Tool " .. VERSION)
     tm.playerUI.AddUILabel(playerId, "lblAbout3", "This mod is in 'active'")
     tm.playerUI.AddUILabel(playerId, "lblAbout4", "development. Please feel")
     tm.playerUI.AddUILabel(playerId, "lblAbout5", "invited to give me feedback")
     tm.playerUI.AddUILabel(playerId, "lblAbout6", "and suggestions for new features.")
     tm.playerUI.AddUILabel(playerId, "lblAbout7", "You can reach me on Discord")
     tm.playerUI.AddUILabel(playerId, "lblAbout8", "under the username:")
-    tm.playerUI.AddUILabel(playerId, "lblAbout9", "<color=#BEAED5><i>blockhampter</i></color>")
+    tm.playerUI.AddUILabel(playerId, "lblAbout9", "<color=#BEAED5><i><b>blockhampter</b></i></color>")
     tm.playerUI.AddUILabel(playerId, "lblAbout10", "I hope you enjoy using this mod!")
     tm.playerUI.AddUILabel(playerId, "lblCredit", ":D")
-
-
 end
 
 local function drawUI_Settings(playerId)
@@ -626,12 +684,6 @@ local function drawUI_ObjectList(playerId, data)
     end
     local group = objectGroups[focusedGroupElement]
 
-    tm.playerUI.AddUIButton(playerId, "btnHideShowGroupObjects" .. focusedGroupElement,
-        (group.visible == true and "Hide" or "Show") .. " Objects", function()
-            group.visible = not group
-                .visible --to be changed out with a call to a function that toggles visibility and hides all objects in the group
-            UpdateUI(playerId, "objectList")
-        end)
 
     tm.playerUI.AddUILabel(playerId, "lbldividerSmall1", "~- Objects -~")
 
@@ -944,8 +996,14 @@ function UpdateUI(playerId, modeName)
         ["spawnGroup"] = function(playerId, data)
             drawUI_SpawnGroup(playerId, data)
         end,
+        ["help"] = function(playerId, data)
+            drawUI_Help(playerId)
+        end,
         ["about"] = function(playerId, data)
             drawUI_About(playerId)
+        end,
+        ["helpFAQ"] = function(playerId, data)
+            drawUI_HelpFAQ(playerId)
         end
     }
     local uiData = playerUIData[playerId]
