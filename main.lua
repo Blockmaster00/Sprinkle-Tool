@@ -369,9 +369,15 @@ end
 local function showGroupPreview(playerId, group)
     local data = playerUIData[playerId]
 
+
     if data.groupVisualization ~= nil then
         data.groupVisualization.Despawn()
     end
+
+    if group == nil then
+        return
+    end
+
     --spawn TriggerBox to visualize Group Area
     local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
     local groupScale = tm.vector3.Create(group.size.x, 5, group.size.z)
@@ -1032,37 +1038,35 @@ end
 
 
 function update()
-    for i, player in ipairs(tm.players.CurrentPlayers()) do
-        local playerId = player.playerId
-        local playerData = playerUIData[playerId]
+    local playerId = 0
+    local playerData = playerUIData[playerId]
 
-        if playerData.sprinkleGen then
-            --player is either spawning or despawning something
-            local sprinkleGen = playerData.sprinkleGen
+    if playerData.sprinkleGen then
+        --player is either spawning or despawning something
+        local sprinkleGen = playerData.sprinkleGen
 
-            local action = sprinkleGen.action -- "Spawning" or "Despawning"
+        local action = sprinkleGen.action     -- "Spawning" or "Despawning"
 
-            if coroutine.status(sprinkleGen.coroutine) ~= "dead" then
-                local ok, index = coroutine.resume(sprinkleGen.coroutine)
-                if ok then
-                    if index == nil then
-                        tm.os.Log("Fatal Flaw in coroutine")
-                        break
-                    end
-                    tm.os.Log(action .. " progress: " .. index .. "/" .. sprinkleGen.amount)
-                    tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
-                        math.ceil((index / sprinkleGen.amount) * 100) .. "%")
-                else
-                    tm.os.Log("reached end or fatal Flaw")
-                    tm.os.Log("Error: " .. index)
+        if coroutine.status(sprinkleGen.coroutine) ~= "dead" then
+            local ok, index = coroutine.resume(sprinkleGen.coroutine)
+            if ok then
+                if index == nil then
+                    tm.os.Log("Fatal Flaw in coroutine")
+                    return
                 end
+                tm.os.Log(action .. " progress: " .. index .. "/" .. sprinkleGen.amount)
+                tm.playerUI.SubtleMessageUpdateMessageForPlayer(playerId, playerData.spawnMessageId,
+                    math.ceil((index / sprinkleGen.amount) * 100) .. "%")
             else
-                tm.playerUI.RemoveSubtleMessageForPlayer(playerId, playerData.spawnMessageId)
-                tm.playerUI.AddSubtleMessageForPlayer(playerId,
-                    action .. " " .. objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
-                playerData.sprinkleGen = nil
-                playerData.spawnMessageId = nil
+                tm.os.Log("reached end or fatal Flaw")
+                tm.os.Log("Error: " .. index)
             end
+        else
+            tm.playerUI.RemoveSubtleMessageForPlayer(playerId, playerData.spawnMessageId)
+            tm.playerUI.AddSubtleMessageForPlayer(playerId,
+                action .. " " .. objectGroups[playerData.focusedGroupElement].name .. " complete", "100%", 5)
+            playerData.sprinkleGen = nil
+            playerData.spawnMessageId = nil
         end
     end
 end
