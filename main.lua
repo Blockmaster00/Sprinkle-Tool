@@ -292,9 +292,7 @@ local function spawnGroup(group, amount)
     local objects = group.objects
     local groupPos = group.position
     local groupSize = group.size
-
-    local maxSpawnPosX, minSpawnPosX = groupPos.x + (groupSize.x / 2), groupPos.x - (groupSize.x / 2)
-    local maxSpawnPosZ, minSpawnPosZ = groupPos.z + (groupSize.z / 2), groupPos.z - (groupSize.z / 2)
+    local groupRotation = (group.rotation or 0) * math.pi / 180  -- Convert to radians
 
     local cumulative, total = prepareWeightedTable(objects)
 
@@ -307,10 +305,19 @@ local function spawnGroup(group, amount)
 
     local i = 0
     while i < amount do
+        -- Generate random position within the unrotated rectangle
+        local randomLocalX = math.random(-groupSize.x / 2 * 100, groupSize.x / 2 * 100) / 100
+        local randomLocalZ = math.random(-groupSize.z / 2 * 100, groupSize.z / 2 * 100) / 100
+
+        -- Apply rotation transformation around Y axis
+        local rotatedX = randomLocalX * math.cos(groupRotation) - randomLocalZ * math.sin(groupRotation)
+        local rotatedZ = randomLocalX * math.sin(groupRotation) + randomLocalZ * math.cos(groupRotation)
+
+        -- Convert to world position
         local raycastPos = tm.vector3.Create(
-            math.random(minSpawnPosX, maxSpawnPosX),
+            groupPos.x + rotatedX,
             groupPos.y,
-            math.random(minSpawnPosZ, maxSpawnPosZ)
+            groupPos.z + rotatedZ
         )
 
         local raycast = tm.physics.RaycastData(raycastPos, tm.vector3.Down(), 1000, true)
@@ -318,10 +325,14 @@ local function spawnGroup(group, amount)
         if raycast.DidHit() then
             local hitPos = raycast.GetHitPosition()
             if heatmap ~= nil then
+                -- Calculate heatmap indices based on rotated position
+                local relativeX = randomLocalX + (groupSize.x / 2)
+                local relativeZ = randomLocalZ + (groupSize.z / 2)
+
                 local hitIndex_X = math.max(1,
-                    math.min(heatmap.width, math.floor(((hitPos.x - minSpawnPosX) / groupSize.x) * heatmap.width)))
+                    math.min(heatmap.width, math.floor((relativeX / groupSize.x) * heatmap.width)))
                 local hitIndex_Y = math.max(1,
-                    math.min(heatmap.height, math.floor(((hitPos.z - minSpawnPosZ) / groupSize.z) * heatmap.height)))
+                    math.min(heatmap.height, math.floor((relativeZ / groupSize.z) * heatmap.height)))
 
                 local randomValue = math.random()
 
@@ -382,6 +393,7 @@ local function showGroupPreview(playerId, group)
     local groupPos = tm.vector3.Create(group.position.x, group.position.y, group.position.z)
     local groupScale = tm.vector3.Create(group.size.x, 5, group.size.z)
     data.groupVisualization = tm.physics.SpawnBoxTrigger(groupPos, groupScale)
+    data.groupVisualization.GetTransform().SetRotation(tm.vector3.Create(0, group.rotation or 0, 0))
     data.groupVisualization.SetIsVisible(true)
 end
 
@@ -655,6 +667,16 @@ local function drawUI_EditGroup(playerId, data)
             return
         end
         group.position.z = tonumber(UICallbackData.value) or group.position.z
+        showGroupPreview(playerId, group)
+    end)
+
+    tm.playerUI.AddUILabel(playerId, "lblRotation", "Rotation Y-Axis (degrees)")
+    tm.playerUI.AddUIText(playerId, "txtRotation", group.rotation or 0, function(UICallbackData)
+        if tonumber(UICallbackData.value) == nil then
+            tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Value", "Rotation must be a number", 5)
+            return
+        end
+        group.rotation = tonumber(UICallbackData.value)
         showGroupPreview(playerId, group)
     end)
 
