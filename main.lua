@@ -167,14 +167,14 @@ local function exportAllGroups(playerId)
                     y = objScale.y,
                     z = objScale.z
                 },
-                N = object.name,
+                N = object.prefab and object.name or "\\Custom Models\\" .. object.name,
                 I = {
                     IsStatic = objReference.GetIsStatic(),
                     CanCollide = true,
                     IsVisible = objReference.GetIsVisible(),
                     DisplayName = "Sprinkle Tool Object",
                     CustomTexture = object.prefab and "" or "\\Custom Models\\" .. object.texture,
-                    CustomModel = object.prefab and object.name or "\\Custom Models\\" .. object.name,
+                    CustomModel = not object.prefab,
                     CustomWeight = 0.0
                 }
             })
