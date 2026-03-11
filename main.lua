@@ -61,6 +61,8 @@ local MAP_DATA = {
     Version = "1.3"
 }
 
+local MAX_CHARS = 10000000 -- max characters allowed to write into a single file
+
 local spawnedGroups = {
     --"groupId" = {obj1, obj2, obj3...},
     --"groupId2" = {obj1, obj2, ....}, ...
@@ -185,12 +187,15 @@ local function exportAllGroups(playerId)
     end
     local jsonString = json.serialize(mapData)
     jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
-
+    if jsonString.len > MAX_CHARS then
+        tm.playerUI.AddSubtleMessageForPlayer(playerId, "Export data too large!", "Try spawning less objects", 10)
+        tm.os.Log("Export data too large! Length: " .. jsonString.len .. " characters. Max allowed: " .. MAX_CHARS .. " characters.")
+        return
+    end
     local timeStamp = os.date("%d-%m-%Y_%H%M%S")
-
     tm.os.WriteAllText_Dynamic("exportedMap" .. timeStamp .. ".json", jsonString)
     tm.playerUI.AddSubtleMessageForPlayer(playerId, "Exported Map as:",
-        "exportedMap" .. timeStamp .. ".json", 10)
+            "exportedMap" .. timeStamp .. ".json", 10)
     tm.os.Log("Exported as exportedMap" .. timeStamp .. ".json")
 end
 
