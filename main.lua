@@ -142,7 +142,7 @@ local function exportAllGroups(playerId)
     end
     for i, group in pairs(spawnedGroups) do
         for j, object in ipairs(group) do
-            tm.os.Log("adding: " .. object.name .. " to export data.")
+            tm.os.Log("adding: " .. object.name .. " to export data. prefab: " .. tostring(object.prefab) .. " texture: " .. tostring(object.texture))
 
             local objReference = object.objectReference
 
@@ -167,6 +167,9 @@ local function exportAllGroups(playerId)
                     y = objScale.y,
                     z = objScale.z
                 },
+                -- Constructs the name for the object. If object.prefab exists and is truthy, uses object.name directly.
+                -- When object.prefab is False, the expression evaluates to the second operand:
+                -- N = "\\Custom Models\\" .. object.name (concatenates the path prefix with the object name)
                 N = object.prefab and object.name or "\\Custom Models\\" .. object.name,
                 I = {
                     IsStatic = objReference.GetIsStatic(),
@@ -284,7 +287,7 @@ local function spawnObject(object, position)
     objectTransform.SetRotation(rotation)
     objectTransform.SetScale(scale)
     tm.os.Log("Spawned Object: " .. object.name)
-    return { objectReference = objectReference, name = object.name, prefab = object.prefab }
+    return { objectReference = objectReference, name = object.name, prefab = object.prefab, texture = object.texture }
 end
 
 local function spawnGroup(group, amount)
@@ -740,6 +743,7 @@ local function drawUI_ObjectList(playerId, data)
     tm.playerUI.AddUIButton(playerId, "btnAddObject", "Add Object", function()
         local newObject = {
             name = newObjectTemplate.name,
+            texture = newObjectTemplate.texture,
             likeliness = newObjectTemplate.likeliness,
             prefab = newObjectTemplate.prefab,
             offset = {
@@ -798,7 +802,7 @@ local function drawUI_EditObject(playerId, data)
     end)
 
     if not object.prefab then
-        tm.playerUI.AddUIText(playerId, "txtObjectTexture", object.texture or "Texture.png", function(UICallbackData)
+        tm.playerUI.AddUIText(playerId, "txtObjectTexture", object.texture, function(UICallbackData)
             if tostring(UICallbackData.value) == "" or UICallbackData.value == nil then
                 tm.playerUI.AddSubtleMessageForPlayer(playerId, "Invalid Texture", "Texture cannot be empty", 5)
                 return
@@ -810,6 +814,11 @@ local function drawUI_EditObject(playerId, data)
     tm.playerUI.AddUIButton(playerId, "btnObjectMode", "Object type: " ..
         (object.prefab == true and "Prefab" or "Custom"), function()
             object.prefab = not object.prefab
+            if object.prefab then
+                object.texture = nil
+            else
+                object.texture = "Texture.png"
+            end
             UpdateUI(playerId, "editObject")
         end)
 
