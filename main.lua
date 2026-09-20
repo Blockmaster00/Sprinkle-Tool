@@ -1,4 +1,4 @@
-VERSION = "1.3"
+VERSION = "1.4"
 
 local MAP_DATA = {
     ObjectList = {},
@@ -187,9 +187,9 @@ local function exportAllGroups(playerId)
     end
     local jsonString = json.serialize(mapData)
     jsonString = string.gsub(jsonString, "(%d+),(%d+)", "%1.%2")
-    if jsonString.len > MAX_CHARS then
+    if string.len(jsonString) > MAX_CHARS then
         tm.playerUI.AddSubtleMessageForPlayer(playerId, "Export data too large!", "Try spawning less objects", 10)
-        tm.os.Log("Export data too large! Length: " .. jsonString.len .. " characters. Max allowed: " .. MAX_CHARS .. " characters.")
+        tm.os.Log("Export data too large! Length: " .. string.len(jsonString) .. " characters. Max allowed: " .. MAX_CHARS .. " characters.")
         return
     end
     local timeStamp = os.date("%d-%m-%Y_%H%M%S")
@@ -244,7 +244,8 @@ local function loadHeatmap(path)
     return parsedData
 end
 
-local function prepareObject(object) --returns scale and rotation
+local function prepareObject(object) --returns offset, scale and rotation
+    local offset = tm.vector3.Create(object.offset.x, object.offset.y, object.offset.z)
     local scale
     if object.scaleSeperate then
         scale = tm.vector3.Create(
@@ -275,17 +276,17 @@ local function prepareObject(object) --returns scale and rotation
         end
     end
 
-    return scale, rotation
+    return offset, scale, rotation
 end
 
 local function spawnObject(object, position)
-    local scale, rotation = prepareObject(object)
+    local offset, scale, rotation = prepareObject(object)
     local objectReference
 
     if object.prefab then
-        objectReference = tm.physics.SpawnObject(position, object.name)
+        objectReference = tm.physics.SpawnObject(position + offset, object.name)
     else
-        objectReference = tm.physics.SpawnCustomObjectConcave(position, object.name, object.texture)
+        objectReference = tm.physics.SpawnCustomObjectConcave(position + offset, object.name, object.texture)
     end
 
     local objectTransform = objectReference.GetTransform()
@@ -307,6 +308,34 @@ local function spawnGroup(group, amount)
     local heatmap = loadHeatmap(group.heatmapPath)
     tm.os.Log("using heatmap: " .. tostring(heatmap ~= nil))
 
+    local heatmapWidth = heatmap and heatmap.width or 1
+    local heatmapHeight = heatmap and heatmap.height or 1
+    local heatmapMinX, heatmapMaxX = 1, heatmapWidth
+    local heatmapMinY, heatmapMaxY = 1, heatmapHeight
+    if heatmap ~= nil then
+        heatmapMinX, heatmapMaxX = heatmapWidth, 1
+        heatmapMinY, heatmapMaxY = heatmapHeight, 1
+
+        for x = 1, heatmapWidth do
+            for y = 1, heatmapHeight do
+                if heatmap.data[x][y] > 0 then
+                    heatmapMinX = math.min(heatmapMinX, x)
+                    heatmapMaxX = math.max(heatmapMaxX, x)
+                    heatmapMinY = math.min(heatmapMinY, y)
+                    heatmapMaxY = math.max(heatmapMaxY, y)
+                end
+            end
+        end
+
+        if heatmapMinX > heatmapMaxX or heatmapMinY > heatmapMaxY then
+            tm.os.Log("Heatmap contains no non-black pixels; using full group bounds")
+            heatmapMinX, heatmapMaxX = 1, heatmapWidth
+            heatmapMinY, heatmapMaxY = 1, heatmapHeight
+        else
+            tm.os.Log("Heatmap bounds: " .. heatmapMinX .. "-" .. heatmapMaxX .. ", " .. heatmapMinY .. "-" .. heatmapMaxY)
+        end
+    end
+
     if spawnedGroups[group.groupId] == nil then
         spawnedGroups[group.groupId] = {}
     end
@@ -314,8 +343,14 @@ local function spawnGroup(group, amount)
     local i = 0
     while i < amount do
         -- Generate random position within the unrotated rectangle
-        local randomLocalX = math.random(-groupSize.x / 2 * 100, groupSize.x / 2 * 100) / 100
-        local randomLocalZ = math.random(-groupSize.z / 2 * 100, groupSize.z / 2 * 100) / 100
+        local randomLocalX = math.random(
+            math.floor(((heatmapMinX - 1) / heatmapWidth - 0.5) * groupSize.x * 100),
+            math.floor((heatmapMaxX / heatmapWidth - 0.5) * groupSize.x * 100)
+        ) / 100
+        local randomLocalZ = math.random(
+            math.floor(((heatmapMinY - 1) / heatmapHeight - 0.5) * groupSize.z * 100),
+            math.floor((heatmapMaxY / heatmapHeight - 0.5) * groupSize.z * 100)
+        ) / 100
 
         -- Apply rotation transformation around Y axis
         local rotatedX = randomLocalX * math.cos(groupRotation) - randomLocalZ * math.sin(groupRotation)
